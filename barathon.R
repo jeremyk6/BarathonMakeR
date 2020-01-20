@@ -43,6 +43,12 @@ ui <- basicPage(
                         min = 1,
                         max = 30,
                         value = 15),
+            # Slider du nombre de bars à prendre en compte
+            sliderInput("nbar",
+                        "Nombre de bars",
+                        min = 2,
+                        max = 10,
+                        value = 6),
             # Liste de choix du type de parcours
             selectInput("typeparcours", "Type de parcours", 
                         choices = list("À pieds" = "walking", "Vélo" = "bike", "Voiture" = "car"), 
