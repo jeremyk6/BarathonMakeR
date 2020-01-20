@@ -20,6 +20,7 @@ library(dqshiny)
 library(openrouteservice)
 library(sf)
 library(leaflet)
+library(htmltools)
 
 # Clé d'API OpenRouteService
 # Lue depuis la première ligne du fichier apikey.conf
@@ -34,15 +35,14 @@ ui <- basicPage(
     sidebarLayout(
         sidebarPanel(
             # UI d'entrée d'adresse
-            uiOutput(
-                "addrUi"
-            ),
+            uiOutput("addrUi"),
             # Slider de définition du temps de parcours
-            sliderInput("min",
-                        "Temps de parcours (mn)",
-                        min = 1,
-                        max = 30,
-                        value = 15),
+            uiOutput("parcoursUi"),
+            # sliderInput("min",
+            #             "Temps de parcours (mn)",
+            #             min = 1,
+            #             max = 30,
+            #             value = 15),
             # Slider du nombre de bars à prendre en compte
             sliderInput("nbar",
                         "Nombre de bars",
@@ -51,7 +51,7 @@ ui <- basicPage(
                         value = 6),
             # Liste de choix du type de parcours
             selectInput("typeparcours", "Type de parcours", 
-                        choices = list("À pieds" = "walking", "Vélo" = "bike", "Voiture" = "car"), 
+                        choices = list("À pieds" = "walking", "À vélo" = "bike"), 
                         selected = 1),
             # Bouton de lancement de la requête
             actionButton("lancer", "Lancer")
@@ -88,11 +88,47 @@ ui_addrList = function(addr) {
     )
 }
 
+ui_parcoursVelo = function() {
+    return(
+        renderUI({
+            sliderInput("min",
+            "Temps de parcours (mn)",
+            min = 1,
+            max = 10,
+            value = 5)
+        })
+    )
+}
+
+ui_parcoursPieds = function() {
+    return(
+        renderUI({
+            sliderInput("min",
+                        "Temps de parcours (mn)",
+                        min = 1,
+                        max = 30,
+                        value = 15)
+        })
+    )
+}
+
 # Serveur
 server <- function(input, output, session) {
     
     # Affichage de l'UI de recherche d'adresse au lancement
     output$addrUi = ui_addrRech()
+    
+    # Affichage du slider de parcours à pieds par défaut
+    output$parcoursUi = ui_parcoursPieds()
+    
+    # Changement du slider de temps de parcours selon le type de trajet
+    observeEvent(input$typeparcours, {
+        if(input$typeparcours == "walking") {
+            output$parcoursUi = ui_parcoursPieds()
+        } else {
+            output$parcoursUi = ui_parcoursVelo()
+        }
+    })
     
     # En cliquant sur rechercher, on change l'UI en une liste affichant les 5 premiers résultats de la recherche d'adresse
     observeEvent(input$rechercher, {
@@ -107,14 +143,35 @@ server <- function(input, output, session) {
     # En cliquant sur lancer, on exécute la requête
     observeEvent(input$lancer, {
         output$carte = renderLeaflet({
-            c = ors_geocode(input$addrl, size=1, output="sf")
+            c = ors_geocode(isolate(input$addrl), size=1, output="sf")
             coordinates = 
                 data.frame(lon = c(st_coordinates(c)[1]), lat = c(st_coordinates(c)[2]))
-            res <- ors_isochrones(coordinates, range = input$min * 60, interval = input$min * 60, ors_profile(input$typeparcours))
+            res <- ors_isochrones(coordinates, range = isolate(input$min) * 60, interval = isolate(input$min) * 60, ors_profile(isolate(input$typeparcours)))
+            pois = ors_pois(
+                request = 'pois',
+                geometry = list(
+                    geojson = list(
+                        type = "Polygon",
+                        coordinates = res$features[[1]]$geometry$coordinates
+                    )
+                ),
+                filters = list(
+                    category_ids = 561
+                ),
+                output = "sf"
+            )
+            # Définition de l'icone pour la carte (biere)
+            mon_icon <- makeIcon(
+                iconUrl = "https://image.flaticon.com/icons/png/512/110/110181.png",
+                iconWidth = 30, iconHeight = 30)
+            # Carte Leaflet
             leaflet(res) %>%
-                addTiles() %>%
-                addGeoJSON(res) %>%
+                addTiles("http://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png") %>%
+                addGeoJSON(res, color = "#cc00cc", opacity = 0.30, fill = FALSE) %>%
+                addMarkers(data = coordinates, popup = ~htmlEscape(isolate(input$addrl))) %>%
+                addMarkers(data = pois, icon = mon_icon, popup = ~htmlEscape(osm_tags)) %>%
                 fitBBox(res$bbox)
+            
         })
     })
 
