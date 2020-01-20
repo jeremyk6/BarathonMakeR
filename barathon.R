@@ -16,7 +16,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 library(shiny)
-library(shinysky)
+library(dqshiny)
 library(openrouteservice)
 library(sf)
 library(leaflet)
@@ -28,21 +28,27 @@ ors_api_key(readLines("apikey.conf")[1])
 # Interface
 ui <- basicPage(
 
-    titlePanel("Barathon Maker"),
+    titlePanel("Barathon MakeR"),
 
     # Widgets
     sidebarLayout(
         sidebarPanel(
-            textInput("addr", "Adresse", "15 Parvis René Descartes Lyon"),
+            # UI d'entrée d'adresse
+            uiOutput(
+                "addrUi"
+            ),
+            # Slider de définition du temps de parcours
             sliderInput("min",
-                        "Temps de parcours:",
+                        "Temps de parcours",
                         min = 1,
                         max = 60,
                         value = 5),
+            # Liste de choix du type de parcours
             selectInput("typeparcours", "Type de parcours", 
                         choices = list("À pieds" = "walking", "Vélo" = "bike", "Voiture" = "car"), 
                         selected = 1),
-            submitButton(text = "Rafraîchir", icon("refresh")),
+            # Bouton de lancement de la requête
+            actionButton("lancer", "Lancer")
         ),
 
         # Carte
@@ -53,20 +59,59 @@ ui <- basicPage(
     
 )
 
+# UI de recherche de l'adresse
+ui_addrRech = function() {
+    return(
+        renderUI({
+            tagList(
+                textInput("addr", "Adresse", "15 Parvis René Descartes Lyon"),
+                actionButton("rechercher", "Rechercher")
+            )
+        })
+    )
+}
+
+# UI de liste des adresses
+ui_addrList = function(addr) {
+    return(
+        renderUI({
+            tagList(
+                selectInput("addrl", label="Adresse", c(ors_geocode(addr, size=5, output="sf")$label)),
+                actionButton("effacer", "Effacer")
+        )})
+    )
+}
+
 # Serveur
-server <- function(input, output) {
+server <- function(input, output, session) {
     
-    output$carte = renderLeaflet({
-        c = ors_geocode(input$addr, size=1, output="sf")
-        coordinates <- 
-            data.frame(lon = c(st_coordinates(c)[1]), lat = c(st_coordinates(c)[2]))
-        res <- ors_isochrones(coordinates, range = input$min * 60, interval = input$min * 60, ors_profile(input$typeparcours))
-        leaflet(res) %>%
-            addTiles() %>%
-            addGeoJSON(res) %>%
-            fitBBox(res$bbox)
+    # Affichage de l'UI de recherche d'adresse au lancement
+    output$addrUi = ui_addrRech()
+    
+    # En cliquant sur rechercher, on change l'UI en une liste affichant les 5 premiers résultats de la recherche d'adresse
+    observeEvent(input$rechercher, {
+        output$addrUi = ui_addrList(input$addr)
     })
     
+    # En cliquant sur effacer, on réaffiche le champ de recherche
+    observeEvent(input$effacer, {
+        output$addrUi = ui_addrRech()
+    })
+    
+    # En cliquant sur lancer, on exécute la requête
+    observeEvent(input$lancer, {
+        output$carte = renderLeaflet({
+            c = ors_geocode(input$addrl, size=1, output="sf")
+            coordinates = 
+                data.frame(lon = c(st_coordinates(c)[1]), lat = c(st_coordinates(c)[2]))
+            res <- ors_isochrones(coordinates, range = input$min * 60, interval = input$min * 60, ors_profile(input$typeparcours))
+            leaflet(res) %>%
+                addTiles() %>%
+                addGeoJSON(res) %>%
+                fitBBox(res$bbox)
+        })
+    })
+
 }
 
 shinyApp(ui = ui, server = server)
