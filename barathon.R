@@ -39,10 +39,10 @@ ui <- basicPage(
             ),
             # Slider de définition du temps de parcours
             sliderInput("min",
-                        "Temps de parcours",
+                        "Temps de parcours (mn)",
                         min = 1,
-                        max = 60,
-                        value = 5),
+                        max = 30,
+                        value = 15),
             # Liste de choix du type de parcours
             selectInput("typeparcours", "Type de parcours", 
                         choices = list("À pieds" = "walking", "Vélo" = "bike", "Voiture" = "car"), 
