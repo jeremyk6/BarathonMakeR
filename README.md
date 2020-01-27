@@ -1,6 +1,17 @@
 # Barathon MakeR - Générateur de Barathon
 
-Cette application utilise l'API OpenRouteService avec la clé définie dans le fichier apikey. L'API est gratuite donc limitée, et il est possible qu'elle atteigne la limite du quota si l'application est fortement sollicitée.
+Cette application permet de générer, depuis une adresse de départ et une adresse d'arrivée, un itinéraire de barathon personnalisable selon différents critères (voir plus bas). Les données sont issues d'OpenStreetMap et les fonctionnalités de géocodage et de routage font appel à l'API gratuite OpenRouteService. Il est possible de créer une clé [à cette adresse](https://openrouteservice.org/), à insérer dans le fichier apikey.
+
+⚠ L'API est limitée en nombre de requêtes journalières, et il est possible qu'elle atteigne la limite du quota si l'application est fortement sollicitée.
+
+## Dépendance
+
+La librairie R OpenRouteService n'étant pas disponible sur le dépôt du CRAN, il faut l'installer manuellement (et installer le package remotes si nécessaire):
+
+```r
+# install.packages("remotes")
+remotes::install_github("GIScience/openrouteservice-r")
+```
 
 ## Comment l'utiliser :
 
